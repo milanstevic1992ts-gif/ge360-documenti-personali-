@@ -1,0 +1,102 @@
+name: Build GE360 baseline APK
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-ge360-baseline-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-24.04
+    env:
+      APP_ID: com.ge360.documentipersonali
+      APP_BUILD_PATH: build/documentscanner
+      APP_RESOURCES: App_Resources/documentscanner
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: true
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          yarn config get globalFolder
+
+      - name: Install NativeScript CLI
+        run: |
+          python3 -m pip install --upgrade pip six --break-system-packages || python3 -m pip install --upgrade pip six
+          npm i -g @akylas/nativescript-cli --ignore-scripts --legacy-peer-deps
+          ns package-manager set yarn2
+          ns usage-reporting disable
+          ns error-reporting disable
+
+      - name: Remove local-development resolutions
+        run: |
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            if (pkg.resolutions) {
+              pkg.resolutions = Object.fromEntries(
+                Object.entries(pkg.resolutions).filter(([_, v]) => typeof v === "string" && v.startsWith("patch:"))
+              );
+            }
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          '
+
+      - name: Install dependencies
+        run: yarn install --silent
+
+      - name: Download OpenCV and Tesseract build resources
+        run: |
+          chmod +x scripts/ci.prepare.sh
+          bash scripts/ci.prepare.sh --platform android
+
+      - name: Build installable debug APK
+        run: |
+          ns build android --clean --no-hmr --env.devlog
+          mkdir -p dist
+          APK="$(find platforms -type f -name '*.apk' | head -n 1)"
+          if [ -z "$APK" ]; then
+            echo "No APK produced"
+            exit 1
+          fi
+          cp "$APK" dist/GE360-Documenti-Personali-baseline.apk
+          ls -lh dist/GE360-Documenti-Personali-baseline.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GE360-Documenti-Personali-baseline
+          path: dist/GE360-Documenti-Personali-baseline.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish baseline prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ge360-oss-baseline --yes --cleanup-tag || true
+          gh release create ge360-oss-baseline \
+            dist/GE360-Documenti-Personali-baseline.apk \
+            --prerelease \
+            --title "GE360 Documenti Personali - OSS baseline" \
+            --notes "Baseline Android build imported from OSS Document Scanner. Package: com.ge360.documentipersonali"
