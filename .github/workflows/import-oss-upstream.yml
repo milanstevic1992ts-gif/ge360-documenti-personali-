@@ -1,0 +1,25 @@
+name: Import OSS Document Scanner upstream
+
+on:
+  push:
+    paths:
+      - '.github/workflows/import-oss-upstream.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror upstream repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone --mirror https://github.com/ossappscollective/OSS-DocumentScanner.git upstream.git
+          cd upstream.git
+          git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${TARGET_REPO}.git"
+          git push --force target refs/heads/main:refs/heads/main
+          git push --force target 'refs/tags/*:refs/tags/*'
