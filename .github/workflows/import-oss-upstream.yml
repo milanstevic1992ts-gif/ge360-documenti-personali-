@@ -12,14 +12,54 @@ jobs:
   import:
     runs-on: ubuntu-latest
     steps:
-      - name: Mirror upstream repository
+      - name: Checkout GE360 target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Import complete OSS Document Scanner source
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_REPO: ${{ github.repository }}
+          UPSTREAM_URL: https://github.com/ossappscollective/OSS-DocumentScanner.git
         run: |
           set -euo pipefail
-          git clone --mirror https://github.com/ossappscollective/OSS-DocumentScanner.git upstream.git
-          cd upstream.git
-          git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${TARGET_REPO}.git"
-          git push --force target refs/heads/main:refs/heads/main
-          git push --force target 'refs/tags/*:refs/tags/*'
+
+          git clone --depth 1 --recurse-submodules --shallow-submodules "$UPSTREAM_URL" /tmp/oss-document-scanner
+
+          # Keep this importer workflow intact. Remove the temporary initialization
+          # content, then copy the upstream working tree.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} +
+          mkdir -p .github/workflows
+          find .github -mindepth 1 -maxdepth 1 ! -name 'workflows' -exec rm -rf {} +
+          find .github/workflows -mindepth 1 -maxdepth 1 ! -name 'import-oss-upstream.yml' -exec rm -rf {} +
+
+          rsync -a --delete-excluded \
+            --exclude='.git' \
+            --exclude='.github/workflows/***' \
+            /tmp/oss-document-scanner/ ./
+
+          # Preserve upstream workflow sources without activating them on this repo.
+          mkdir -p upstream-workflows-disabled
+          if [ -d /tmp/oss-document-scanner/.github/workflows ]; then
+            cp -a /tmp/oss-document-scanner/.github/workflows/. upstream-workflows-disabled/
+            find upstream-workflows-disabled -type f -print0 | while IFS= read -r -d '' f; do
+              mv "$f" "$f.disabled"
+            done
+          fi
+
+          UPSTREAM_SHA="$(git -C /tmp/oss-document-scanner rev-parse HEAD)"
+          cat > GE360_UPSTREAM.md <<EOF
+          # GE360 Documenti Personali - upstream
+
+          Source: https://github.com/ossappscollective/OSS-DocumentScanner
+          Imported commit: $UPSTREAM_SHA
+
+          OSS Document Scanner source is retained under its original MIT license.
+          Upstream GitHub Actions workflows are preserved under `upstream-workflows-disabled/`
+          with a `.disabled` suffix so they cannot execute in this repository.
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: import OSS Document Scanner source at $UPSTREAM_SHA"
+          git push origin HEAD:main
