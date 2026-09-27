@@ -33,8 +33,12 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify preinstalled Android toolchain
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          java -version
+          adb version
+          test -d "$ANDROID_HOME"
 
       - name: Enable Corepack
         run: |
