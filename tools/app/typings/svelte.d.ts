@@ -1,0 +1,276 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+type Color = import('@nativescript/core').Color;
+type EventData = import('@nativescript/core').EventData;
+type LengthDipUnit = import('@nativescript/core/core-types').LengthDipUnit;
+type LengthPxUnit = import('@nativescript/core/core-types').LengthPxUnit;
+type LengthPercentUnit = import('@nativescript/core/core-types').LengthPercentUnit;
+type VisibilityType = import('@nativescript/core/core-types').VisibilityType;
+type ShownModallyData = import('@nativescript/core').ShownModallyData;
+type CanvasView = import('@nativescript-community/ui-canvas').CanvasView;
+type Canvas = import('@nativescript-community/ui-canvas').Canvas;
+type Paint = import('@nativescript-community/ui-canvas').Paint;
+type PanGestureHandlerOptions = import('@nativescript-community/gesturehandler').PanGestureHandlerOptions;
+type PinchGestureHandlerOptions = import('@nativescript-community/gesturehandler').PinchGestureHandlerOptions;
+type RotationGestureHandlerOptions = import('@nativescript-community/gesturehandler').RotationGestureHandlerOptions;
+type TapGestureHandlerOptions = import('@nativescript-community/gesturehandler').TapGestureHandlerOptions;
+type FlingGestureHandlerOptions = import('@nativescript-community/gesturehandler').FlingGestureHandlerOptions;
+type LongPressGestureHandlerOptions = import('@nativescript-community/gesturehandler').LongPressGestureHandlerOptions;
+type HighlightEventData = import('@nativescript-community/ui-chart/charts/Chart').HighlightEventData;
+
+declare module 'svelte/internal' {
+    export function get_current_component();
+}
+type MultiPlatform<T> = T & {
+    [K in keyof T as `ios:${K}`]: T[K];
+} & {
+    [K in keyof T as `android:${K}`]: T[K];
+};
+
+declare namespace svelteNative.JSX {
+    type Override<What, With> = Omit<What, keyof With> & With;
+
+    interface ViewAttributes {
+        defaultVisualState?: string;
+        'prop:bottomSheet'?;
+        'prop:mainContent'?;
+        'prop:leftDrawer'?;
+        'prop:rightDrawer'?;
+        'prop:bottomDrawer'?;
+        'prop:topDrawer'?;
+        disableCss?: boolean;
+        exclusiveTouch?: boolean;
+        disallowInterceptTouch?: boolean;
+        rippleColor?: string | Color;
+        sharedTransitionTag?: string;
+        verticalAlignment?: string;
+        testID?: string;
+        dynamicElevationOffset?: string | number;
+        elevation?: string | number;
+        'on:closingModally'?: (args: ShownModallyData) => void;
+        'on:closedBottomSheet'?: (args) => void;
+        iosAccessibilityMaxFontScale?: number;
+        iosAccessibilityMinFontScale?: number;
+        // "on:shownModally"?: (args: ShownModallyData) => void;
+
+        tapGestureOptions?: Partial<TapGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<TapGestureHandlerOptions>);
+        panGestureOptions?: Partial<PanGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<PanGestureHandlerOptions>);
+        doubleTapGestureOptions?: Partial<TapGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<TapGestureHandlerOptions>);
+        longPressGestureOptions?: Partial<LongPressGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<LongPressGestureHandlerOptions>);
+        swipeGestureOptions?: Partial<FlingGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<FlingGestureHandlerOptions>);
+        pinchGestureOptions?: Partial<PinchGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<PinchGestureHandlerOptions>);
+        rotationGestureOptions?: Partial<RotationGestureHandlerOptions> | ((view: View, tag: number, rootTag: number) => Partial<RotationGestureHandlerOptions>);
+    }
+
+    interface ButtonAttributes {
+        variant?: string;
+        shape?: string;
+    }
+
+    interface ImageAttributes {
+        aspectRatio?: number;
+        headers?: { [k: string]: string };
+        noCache?: boolean;
+        placeholderImageUri?: string;
+        failureImageUri?: string;
+        imageRotation?: number;
+        colorMatrix?: number[];
+        blurRadius?: number;
+        noRatioEnforce?: boolean;
+        fadeDuration?: number;
+        contextOptions?: any;
+        'on:rotateAnimated'?: (args) => void;
+        'on:finalImageSet'?: (args) => void;
+        'on:fetchingFrom'?: (args) => void;
+        'on:failure'?: (args) => void;
+    }
+
+    interface CollectionViewAttributes extends ViewAttributes, TViewAttributes {
+        autoReloadItemOnLayout?: boolean;
+        isBounceEnabled?: boolean;
+        autoReloadItemOnLayout?: boolean;
+        autoSize?: boolean;
+        estimatedItemSize?: boolean;
+        scrollBarIndicatorVisible?: boolean;
+        layoutStyle?: string;
+        plugins?: string[];
+        isScrollEnabled?: boolean;
+        nestedScrollingEnabled?: boolean;
+        contentInsetAdjustmentBehavior?: number;
+        reverseLayout?: boolean;
+        orientation?: string;
+        reorderEnabled?: boolean;
+        verticalSpacing?: LengthType;
+        horizontalSpacing?: LengthType;
+        reorderLongPressEnabled?: boolean;
+        rowHeight?: number | string;
+        colWidth?: number | string;
+        animateItemUpdate?: boolean;
+        loadMoreThreshold?: number;
+        scrollOffset?: number;
+        itemTemplateSelector?: (item, index, items) => string;
+        itemIdGenerator?: (item, i: number) => number;
+        spanSize?: (item: any, index: number) => number;
+        itemOverlap?: (item: any, index: number) => [number, number, number, number];
+        items?: any;
+        padding?: string | number | LengthDipUnit | LengthPxUnit;
+        paddingBottom?: string | number | LengthDipUnit | LengthPxUnit;
+        paddingLeft?: string | number | LengthDipUnit | LengthPxUnit;
+        paddingRight?: string | number | LengthDipUnit | LengthPxUnit;
+        paddingTop?: string | number | LengthDipUnit | LengthPxUnit;
+
+        'on:itemReorderStarting'?: (args: EventData) => void;
+        'on:itemReordered'?: (args: EventData) => void;
+        'on:itemReorderCheck'?: (args: EventData) => void;
+        'on:dataPopulated'?: (args: EventData) => void;
+        'on:scroll'?: (args: EventData) => void;
+        'on:layoutCompleted'?: (args: EventData) => void;
+    }
+    interface CanvasAttributes extends GridLayoutAttributes {
+        hardwareAccelerated?: boolean;
+        'on:draw'?: (args: { canvas: Canvas; object: CanvasView }) => void;
+    }
+    interface LineChartAttributes extends CanvasAttributes {
+        'on:highlight'?: (args: HighlightEventData) => void;
+        'on:zoom'?: (args) => void;
+        'on:pan'?: (args) => void;
+        dragDecelerationEnabled?: boolean;
+        drawMarkersEnabled?: boolean;
+        highlightsFilterByAxis?: boolean;
+        disableScrollEnabled?: boolean;
+        noDataText?: string;
+        descPaint?: Paint;
+        panGestureOptions?: PanGestureHandlerOptions & {
+            gestureTag?: number;
+        };
+        tapGestureOptions?: TapGestureHandlerOptions & {
+            gestureTag?: number;
+        };
+        doubleTapGestureOptions?: TapGestureHandlerOptions & {
+            gestureTag?: number;
+        };
+        pinchGestureOptions?: PinchGestureHandlerOptions & {
+            gestureTag?: number;
+        };
+        rotationGestureOptions?: RotationGestureHandlerOptions & {
+            gestureTag?: number;
+        };
+    }
+    interface SpanAttributes {
+        fontWeight?: string | number;
+    }
+
+    interface LabelAttributes {
+        linkColor?: string;
+        autoFontSize?: boolean;
+        autoFontSizeStep?: number;
+        maxLines?: number;
+        minFontSize?: number;
+        maxFontSize?: number;
+        lineBreak?: string;
+        html?: string;
+        selectable?: boolean;
+        'ios:selectable'?: boolean;
+        onlinkTap?;
+        'on:linkTap'?;
+    }
+    interface WebViewAttributes {}
+    interface AWebViewAttributes extends WebViewAttributes {
+        builtInZoomControls?: boolean;
+        debugMode?: boolean;
+        displayZoomControls?: boolean;
+        nestedScrollView?: boolean;
+        normalizeUrls?: boolean;
+        webConsoleEnabled?: boolean;
+        webRTC?: boolean;
+        mediaPlaybackRequiresUserAction?: boolean;
+        domStorage?: boolean;
+        userAgent?: string;
+        createWebViewClient?: Function;
+        'on:shouldOverrideUrlLoading'?: (args) => void;
+        'on:loadFinished'?: (args) => void;
+        [key: `on:${string}`]: (args: any) => void;
+    }
+    interface TextFieldAttributes {
+        floating?: boolean | string;
+        variant?: string;
+        error?: string;
+        lineBreak?: string;
+        placeholder?: string;
+        placeholderColor?: string | Color;
+        'on:returnPress'?: (args) => void;
+        'on:focus'?: (args) => void;
+        'on:blur'?: (args) => void;
+    }
+    interface SegmentedBarItemAttributes {
+        variant?: string;
+    }
+    interface TextViewAttributes {
+        floating?: boolean | string;
+        variant?: string;
+        placeholder?: string;
+        placeholderColor?: string | Color;
+        'on:returnPress'?: (args) => void;
+        'on:focus'?: (args) => void;
+        'on:blur'?: (args) => void;
+    }
+    interface TextBaseAttributes {
+        iosAccessibilityAdjustsFontSize?: boolean;
+        verticalTextAlignment?: string;
+        fontWeight?: string | number;
+        text?: string | number;
+    }
+    interface SpanAttributes {
+        verticalAlignment?: string;
+        verticalTextAlignment?: string;
+        onlinkTap?;
+        'on:linkTap'?;
+    }
+    interface ProgressAttributes {
+        busy?: boolean;
+        indeterminate?: boolean;
+    }
+    interface SliderAttributes {
+        stepSize?: number;
+        trackBackgroundColor?: string | Color;
+        thumbColor?: string | Color;
+    }
+    interface ProgressAttributes {
+        padding?: number | string;
+    }
+    interface PageAttributes {
+        'on:sharedElementTo'?: (args) => void;
+        'on:sharedElementFrom'?: (args) => void;
+        navigationBarColor?: string | Color;
+        statusBarColor?: string | Color;
+        screenOrientation?: string;
+        keepScreenAwake?: boolean;
+        screenBrightness?: number;
+    }
+    interface SpanAttributes {
+        linkColor?: string;
+        html?: string;
+    }
+    interface CSpanAttributes extends TextBaseAttributes, SpanAttributes {}
+    interface CanvasLabelAttributes extends CanvasAttributes, LabelAttributes {}
+
+    type IntrinsicElementsAugmented = TIntrinsicElements & {
+        gesturerootview: GridLayoutAttributes;
+        mdbutton: ButtonAttributes;
+        cspan: CSpanAttributes;
+        canvaslabel: CanvasLabelAttributes;
+        canvasview: CanvasAttributes;
+        awebview: AWebViewAttributes;
+        linechart: LineChartAttributes;
+        collectionview: CollectionViewAttributes;
+    };
+
+    type IntrinsicElementsAugmentedLowercase = Override<
+        IntrinsicElementsAugmented,
+        {
+            [K in keyof IntrinsicElementsAugmented]: MultiPlatform<IntrinsicElementsAugmented[K]>;
+        }
+    > & {
+        [K in keyof IntrinsicElementsAugmented as Lowercase<K>]: MultiPlatform<IntrinsicElementsAugmented[K]>;
+    };
+    interface IntrinsicElements extends IntrinsicElementsAugmentedLowercase {}
+}

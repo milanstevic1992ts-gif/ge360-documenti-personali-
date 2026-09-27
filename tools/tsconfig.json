@@ -1,0 +1,41 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "esnext",
+        "moduleResolution": "node",
+        "declaration": false,
+        "removeComments": true,
+        "emitDecoratorMetadata": false,
+        "experimentalDecorators": true,
+        "sourceMap": true,
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true,
+        "preserveSymlinks": true,
+        "allowUnreachableCode": false,
+        "allowSyntheticDefaultImports": true,
+        "allowUnusedLabels": false,
+        "noEmitHelpers": true,
+        "noEmitOnError": false,
+        "noImplicitAny": false,
+        "noImplicitReturns": false,
+        "noImplicitUseStrict": false,
+        "noFallthroughCasesInSwitch": true,
+        "resolveJsonModule": true,
+        "strict": false,
+        "lib": ["esnext", "es2017", "dom"],
+        "types": ["node", "svelte", "@nativescript-community/svelte-native"],
+        "paths": {
+            "~/*": ["../app/*"],
+            "@shared/*": ["./app/*"],
+            "kiss-orm": ["../node_modules/@akylas/kiss-orm"],
+            "kiss-orm/*": ["../node_modules/@akylas/kiss-orm/*"],
+            "svelte-native": ["../node_modules/@nativescript-community/svelte-nativem"],
+            "svelte-native/*": ["../node_modules/@nativescript-community/svelte-native/*"],
+            "@nativescript/core": ["../node_modules/@akylas/nativescript"],
+            "@nativescript/core/*": ["../node_modules/@akylas/nativescript/*"]
+        }
+    },
+    "include": ["./app/components/**/*.svelte", "./app/**/*.ts", "./app/**/*.svelte", "../app/**/*.ts", "../app/**/*.svelte", "../typings/*.d.ts"],
+    "exclude": ["node_modules", "platforms", "hooks"],
+    "compileOnSave": false
+}

@@ -1,0 +1,341 @@
+import { InAppBrowser } from '@akylas/nativescript-inappbrowser';
+import { lc } from '@nativescript-community/l';
+import { NativeViewElementNode, createElement } from '@nativescript-community/svelte-native/dom';
+import { AlertDialog, MDCAlertControlerOptions, alert } from '@nativescript-community/ui-material-dialogs';
+import { SnackBarOptions, showSnack as mdShowSnack } from '@nativescript-community/ui-material-snackbar';
+import { HorizontalPosition, VerticalPosition } from '@nativescript-community/ui-popover';
+import { showPopover } from '@nativescript-community/ui-popover/svelte';
+import { type GridLayout, Utils, type View, type ViewBase } from '@nativescript/core';
+import { AlertOptions } from '@nativescript/core/ui/dialogs/dialogs-common';
+import { debounce } from '@nativescript/core/utils';
+import type LoadingIndicator__SvelteComponent_ from '@shared/components/LoadingIndicator.svelte';
+import LoadingIndicator from '@shared/components/LoadingIndicator.svelte';
+import type OptionSelect__SvelteComponent_ from '@shared/components/OptionSelect.svelte';
+import { showError } from '@shared/utils/showError';
+import { ComponentProps } from 'svelte';
+import { get } from 'svelte/store';
+import { colors, screenWidthDips } from '~/variables';
+import { navigate } from '@shared/utils/svelte/ui';
+
+export function timeout(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+export interface ComponentInstanceInfo<T extends ViewBase = View, U = SvelteComponent> {
+    element: NativeViewElementNode<T>;
+    viewInstance: U;
+}
+export function resolveComponentElement<T>(viewSpec: typeof SvelteComponent<T>, props?: T): ComponentInstanceInfo {
+    const dummy = createElement('fragment', window.document as any);
+    const viewInstance = new viewSpec({ target: dummy, props });
+    const element = dummy.firstElement() as NativeViewElementNode<View>;
+    return { element, viewInstance };
+}
+
+export function createView<T extends View>(claz: new () => T, props: Partial<Pick<T, keyof T>> = {}, events?) {
+    const view: T = new claz();
+    Object.assign(view, props);
+    if (events) {
+        Object.keys(events).forEach((k) => view.on(k, events[k]));
+    }
+    return view;
+}
+
+export async function showSnack(options: SnackBarOptions) {
+    try {
+        // options.view = options.view || Application.getRootView();
+        DEV_LOG && console.log('showSnack', options.message);
+        return mdShowSnack({ ...options, iosIgnorePresentedViewController: (controller) => controller['isPopOverController'] === true });
+    } catch (error) {}
+}
+
+export async function openLink(url) {
+    const { colorPrimary } = get(colors);
+    const available = await InAppBrowser.isAvailable();
+    if (available) {
+        const result = await InAppBrowser.open(url, {
+            // iOS Properties
+            dismissButtonStyle: 'close',
+            preferredBarTintColor: colorPrimary,
+            preferredControlTintColor: 'white',
+            readerMode: false,
+            animated: true,
+            enableBarCollapsing: false,
+            // Android Properties
+            showTitle: true,
+            toolbarColor: colorPrimary,
+            secondaryToolbarColor: 'white',
+            enableUrlBarHiding: true,
+            enableDefaultShare: true,
+            forceCloseOnRedirection: false
+        });
+        return result;
+    } else {
+        Utils.openUrl(url);
+    }
+}
+
+export interface ShowLoadingOptions {
+    title?: string;
+    text: string;
+    progress?: number;
+    onButtonTap?: () => void;
+}
+
+let loadingIndicator: AlertDialog & { instance?: LoadingIndicator__SvelteComponent_ };
+let showLoadingStartTime: number = null;
+function getLoadingIndicator() {
+    if (!loadingIndicator) {
+        const componentInstanceInfo = resolveComponentElement(LoadingIndicator, {});
+        const view: View = componentInstanceInfo.element.nativeView;
+        // const stack = new StackLayout()
+        loadingIndicator = new AlertDialog({
+            view,
+            cancelable: false
+        });
+        loadingIndicator.instance = componentInstanceInfo.viewInstance as LoadingIndicator__SvelteComponent_;
+    }
+    return loadingIndicator;
+}
+export function updateLoadingProgress(msg: Partial<ShowLoadingOptions>) {
+    if (showingLoading()) {
+        const loadingIndicator = getLoadingIndicator();
+        const props = Object.assign(
+            {
+                title: loadingIndicator.instance.title,
+                progress: loadingIndicator.instance.progress,
+                text: loadingIndicator.instance.text
+            },
+            msg
+        );
+        loadingIndicator.instance.$set(props);
+    }
+}
+export async function showLoading(msg?: string | ShowLoadingOptions) {
+    try {
+        const text = (msg as any)?.text || (typeof msg === 'string' && msg) || lc('loading');
+        // DEV_LOG && console.log('showLoading', text);
+        const indicator = getLoadingIndicator();
+        indicator.instance.onButtonTap = msg?.['onButtonTap'];
+        const props = {
+            showButton: !!msg?.['onButtonTap'],
+            text,
+            title: (msg as any)?.title,
+            progress: null
+        };
+        if (msg && typeof msg !== 'string' && msg?.hasOwnProperty('progress')) {
+            props.progress = msg.progress;
+        } else {
+            props.progress = null;
+        }
+        indicator.instance.$set(props);
+        if (showLoadingStartTime === null) {
+            showLoadingStartTime = Date.now();
+            indicator.show();
+        }
+    } catch (error) {
+        showError(error, { silent: true });
+    }
+}
+export function showingLoading() {
+    return showLoadingStartTime !== null;
+}
+export async function hideLoading() {
+    if (!loadingIndicator) {
+        return;
+    }
+    // DEV_LOG && console.log('hideLoading', new Error().stack);
+    const delta = showLoadingStartTime ? Date.now() - showLoadingStartTime : -1;
+    if (__IOS__ && delta >= 0 && delta < 1000) {
+        await timeout(1000 - delta);
+        // setTimeout(() => hideLoading(), 1000 - delta);
+        // return;
+    }
+    showLoadingStartTime = null;
+    if (loadingIndicator) {
+        return loadingIndicator.hide();
+    }
+}
+export async function tryCatch<T = any>(callback: (...args) => Promise<T>, onErrorCb?, finallyCb?) {
+    try {
+        const result = await callback();
+        return result;
+    } catch (error) {
+        showError(error);
+        onErrorCb?.();
+    } finally {
+        finallyCb?.();
+    }
+}
+export function tryCatchFunction<T = any>(callback: (...args) => Promise<T>, onErrorCb?, finallyCb?) {
+    return async (...args) => {
+        try {
+            const result = await callback(...args);
+            return result;
+        } catch (error) {
+            showError(error);
+            onErrorCb?.();
+        } finally {
+            finallyCb?.();
+        }
+    };
+}
+export async function showAlertOptionSelect(props?: ComponentProps<OptionSelect__SvelteComponent_>, options?: Partial<AlertOptions & MDCAlertControlerOptions>) {
+    const component = (await import('@shared/components/OptionSelect.svelte')).default;
+    let componentInstanceInfo: ComponentInstanceInfo<GridLayout, OptionSelect__SvelteComponent_>;
+    try {
+        componentInstanceInfo = resolveComponentElement(component, {
+            onClose: (result) => {
+                view.bindingContext.closeCallback(result);
+            },
+            onCheckBox(item, value, e) {
+                view.bindingContext.closeCallback(item);
+            },
+            trackingScrollView: 'collectionView',
+            ...props
+        }) as ComponentInstanceInfo<GridLayout, OptionSelect__SvelteComponent_>;
+        const view: View = componentInstanceInfo.element.nativeView;
+        const result = await alert({
+            view,
+            okButtonText: lc('cancel'),
+            ...(options ? options : {})
+        });
+        return result;
+    } catch (err) {
+        throw err;
+    } finally {
+        componentInstanceInfo.element.nativeElement._tearDownUI();
+        componentInstanceInfo.viewInstance.$destroy();
+        componentInstanceInfo = null;
+    }
+}
+
+export async function showAlertDialog<T>(viewSpec: typeof SvelteComponent<T>, props?: T, options?: Partial<AlertOptions & MDCAlertControlerOptions>) {
+    let componentInstanceInfo: ComponentInstanceInfo<GridLayout, SvelteComponent<T>>;
+    // try {
+    componentInstanceInfo = resolveComponentElement(viewSpec, {
+        onClose: (result) => {
+            view.bindingContext.closeCallback(result);
+        },
+        onCheckBox(item, value, e) {
+            view.bindingContext.closeCallback(item);
+        },
+        ...props
+    }) as ComponentInstanceInfo<GridLayout, SvelteComponent<T>>;
+    const view: View = componentInstanceInfo.element.nativeView;
+    const dialog = new AlertDialog({
+        view,
+        ...(options ? options : {})
+    });
+    dialog.show(() => {
+        DEV_LOG && console.log('on reslove');
+        componentInstanceInfo.element.nativeElement._tearDownUI();
+        componentInstanceInfo.viewInstance.$destroy();
+        componentInstanceInfo = null;
+    });
+    // return result;
+    // } catch (err) {
+    // throw err;
+    // } finally {
+    //     componentInstanceInfo.element.nativeElement._tearDownUI();
+    //     componentInstanceInfo.viewInstance.$destroy();
+    //     componentInstanceInfo = null;
+    // }
+}
+
+export async function showSliderPopover({
+    anchor,
+    debounceDuration = 100,
+    formatter,
+    horizPos = HorizontalPosition.ALIGN_LEFT,
+    icon,
+    max = 100,
+    min = 0,
+    onChange,
+    step = 1,
+    title,
+    value,
+    vertPos = VerticalPosition.CENTER,
+    width = 0.8 * screenWidthDips
+}: {
+    title?;
+    debounceDuration?;
+    icon?;
+    min?;
+    max?;
+    step?;
+    formatter?;
+    horizPos?;
+    anchor;
+    vertPos?;
+    width?;
+    value?;
+    onChange?;
+}) {
+    const component = (await import('@shared/components/SliderPopover.svelte')).default;
+    const { colorSurfaceContainer } = get(colors);
+
+    return showPopover({
+        backgroundColor: colorSurfaceContainer,
+        view: component,
+        anchor,
+        horizPos,
+        vertPos,
+        props: {
+            title,
+            icon,
+            min,
+            max,
+            step,
+            width,
+            formatter,
+            value,
+            onChange: debounce(onChange, debounceDuration)
+        }
+
+        // trackingScrollView: 'collectionView'
+    });
+}
+export async function showSlidersPopover({
+    anchor,
+    debounceDuration = 100,
+    horizPos = HorizontalPosition.ALIGN_LEFT,
+    items,
+    vertPos = VerticalPosition.CENTER,
+    width = 0.8 * screenWidthDips
+}: {
+    debounceDuration?;
+    horizPos?;
+    anchor;
+    vertPos?;
+    width?;
+    items;
+}) {
+    const component = (await import('@shared/components/SlidersPopover.svelte')).default;
+    const { colorSurfaceContainer } = get(colors);
+
+    return showPopover({
+        backgroundColor: colorSurfaceContainer,
+        view: component,
+        anchor,
+        horizPos,
+        vertPos,
+        props: {
+            width,
+            items
+        }
+
+        // trackingScrollView: 'collectionView'
+    });
+}
+
+export async function showSettings(props?) {
+    try {
+        const Settings = (await import('~/components/settings/Settings.svelte')).default;
+        navigate({
+            page: Settings,
+            props
+        });
+    } catch (error) {
+        showError(error);
+    }
+}

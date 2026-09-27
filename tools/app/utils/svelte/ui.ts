@@ -1,0 +1,171 @@
+import { Application, EventData, Frame, Observable, Page, PageBase, View } from '@nativescript/core';
+import { throttle } from '@nativescript/core/utils';
+import { EventDispatcher, onDestroy } from 'svelte';
+import { closeModal as sCloseModal, goBack as sGoBack, navigate as sNavigate, showModal as sShowModal } from '@nativescript-community/svelte-native';
+import { BackNavigationOptions, NavigationOptions, ShowModalOptions, resolveTarget } from '@nativescript-community/svelte-native/dom';
+import { asSvelteTransition, easings } from '@nativescript-community/svelte-native/transitions';
+import { get_current_component } from 'svelte/internal';
+
+export const globalObservable = new Observable();
+
+const callbacks = {};
+export function createGlobalEventListener<T = any, U extends EventData = EventData>(eventName: string) {
+    return function (callback: (data: T, event: U) => any, once = false) {
+        callbacks[eventName] = callbacks[eventName] || {};
+        let cleaned = false;
+
+        function clean() {
+            if (!cleaned) {
+                cleaned = true;
+                delete callbacks[eventName][callback];
+                globalObservable.off(eventName, eventCallack);
+            }
+        }
+        const eventCallack = (event: U & { data: T; result?: any }) => {
+            if (once) {
+                clean();
+            }
+            if (Array.isArray(event.data)) {
+                //@ts-ignore
+                event.result = callback(...event.data, event);
+            } else {
+                event.result = callback(event.data, event);
+            }
+        };
+        callbacks[eventName][callback] = eventCallack;
+        globalObservable.on(eventName, eventCallack);
+
+        onDestroy(() => {
+            clean();
+        });
+        return clean;
+    };
+}
+export function createUnregisterGlobalEventListener(eventName: string) {
+    return function (callback: Function) {
+        if (callbacks[eventName] && callbacks[eventName][callback]) {
+            globalObservable.off(eventName, callbacks[eventName][callback]);
+            delete callbacks[eventName][callback];
+        }
+    };
+}
+
+export function fade(node, { delay = 0, duration = 400, easing = easings.easeInOutQuart } = {}) {
+    const opacity = node.nativeView.opacity;
+    return asSvelteTransition(node, delay, duration, easing, (t) => ({
+        opacity: t * opacity
+    }));
+}
+
+export function slide(node, { delay = 0, duration = 400, easing = easings.easeInOutQuart, translation = 200 }) {
+    return asSvelteTransition(node, delay, duration, easing, (t) => ({
+        translate: {
+            x: 0,
+            y: (1 - t) * translation
+        }
+    }));
+}
+
+// function slide(node, { delay = 0, duration = 400, easing = CoreTypes.AnimationCurve.easeOut }) {
+//     const height = node.nativeView.effectiveHeight;
+//     const scaleX = node.nativeView.scaleX;
+//     const scaleY = node.nativeView.scaleY;
+//     const translateX = node.nativeView.translateX;
+//     const translateY = node.nativeView.translateY;
+//     return asSvelteTransition(node, delay, duration, easing, t => ({
+//         scale: {
+//             x: scaleX,
+//             y: t * scaleY
+//         },
+//         translate: {
+//             x: translateX,
+//             y: translateY - t * 0.5 * height
+//         }
+//     }));
+// }
+
+export function scale(node, { delay = 0, duration = 400, easing = easings.easeInOutQuart }) {
+    const scaleX = node.nativeView.scaleX;
+    const scaleY = node.nativeView.scaleY;
+    return asSvelteTransition(node, delay, duration, easing, (t) => ({
+        scale: {
+            x: t * scaleX,
+            y: t * scaleY
+        }
+    }));
+}
+
+export function conditionalEvent(node, { callback, condition, event }) {
+    let toRemove;
+    if (condition) {
+        toRemove = callback;
+        node.addEventListener(event, callback);
+    }
+
+    return {
+        destroy() {
+            if (toRemove) {
+                node.removeEventListener(event, toRemove);
+            }
+        }
+    };
+}
+
+export function createEventDispatcher<EventMap extends Record<string, any> = any>(): EventDispatcher<EventMap> {
+    const component = get_current_component();
+    return (type, event?, options?) => {
+        const callbacks = component.$$.callbacks[type];
+        if (callbacks) {
+            callbacks.slice().forEach((fn) => {
+                fn.call(component, event);
+            });
+        }
+        return true;
+    };
+}
+export function goBack(options: BackNavigationOptions = {}) {
+    const frame = Frame.topmost();
+    // this means the frame is animating
+    // doing goBack would mean boing back up 2 levels because
+    // the animating context is not yet in the backStack
+    if (frame['_executingContext']) {
+        return;
+    }
+    return sGoBack(options);
+}
+type NavigateFunc = <T>(options: NavigationOptions<T>) => SvelteComponent<T>;
+const throttledSNavigate = throttle(sNavigate, 500) as NavigateFunc;
+export function navigate<T>(options: NavigationOptions<T>) {
+    return throttledSNavigate<T>(options);
+}
+
+function createNavigatedData(page: Page, eventName: string) {
+    return {
+        eventName,
+        object: page,
+        context: page.navigationContext
+    };
+}
+
+let hiddenPageByModal: Page = null;
+export function closeModal(result?: any, parent?: View) {
+    if (hiddenPageByModal) {
+        hiddenPageByModal.notify(createNavigatedData(hiddenPageByModal, PageBase.navigatedToEvent));
+        hiddenPageByModal = null;
+    }
+    return sCloseModal(result, parent);
+}
+
+export function showModal<T, U>(modalOptions: ShowModalOptions<U>): Promise<T> {
+    if (modalOptions.fullscreen) {
+        const modalLauncher = resolveTarget(modalOptions.target) || Frame.topmost().currentPage || Application.getRootView();
+        hiddenPageByModal = modalLauncher instanceof Page ? modalLauncher : modalLauncher.page;
+        hiddenPageByModal?.notify(createNavigatedData(hiddenPageByModal, PageBase.navigatingFromEvent));
+        setTimeout(() => {
+            if (hiddenPageByModal?.['_modal']) {
+                hiddenPageByModal.notify(createNavigatedData(hiddenPageByModal, PageBase.navigatedFromEvent));
+            }
+        }, 1000);
+    }
+    return sShowModal(modalOptions);
+}
