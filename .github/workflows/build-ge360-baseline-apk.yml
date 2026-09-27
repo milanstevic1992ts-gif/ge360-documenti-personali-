@@ -82,6 +82,11 @@ jobs:
           chmod +x scripts/ci.prepare.sh
           bash scripts/ci.prepare.sh --platform android
 
+      - name: Prepare GE360 theme alias
+        run: |
+          rm -rf app/themes/com.ge360.documentipersonali
+          cp -a app/themes/com.akylas.documentscanner app/themes/com.ge360.documentipersonali
+
       - name: Build installable debug APK
         run: |
           mkdir -p dist
